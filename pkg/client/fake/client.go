@@ -31,6 +31,7 @@ import (
 
 	// Using v4 to match upstream
 	jsonpatch "github.com/evanphx/json-patch"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -1089,6 +1090,19 @@ func (sw *fakeSubResourceClient) Create(ctx context.Context, obj client.Object, 
 		}
 
 		return sw.client.Delete(ctx, obj)
+	case "token":
+		tokenRequest, isTokenRequest := subResource.(*authenticationv1.TokenRequest)
+		if !isTokenRequest {
+			return apierrors.NewBadRequest(fmt.Sprintf("got invalid type %T, expected TokenRequest", subResource))
+		}
+		if _, isServiceAccount := obj.(*corev1.ServiceAccount); !isServiceAccount {
+			return apierrors.NewNotFound(schema.GroupResource{}, "")
+		}
+
+		tokenRequest.Status.Token = "fake-token"
+		tokenRequest.Status.ExpirationTimestamp = metav1.Date(6041, 1, 1, 0, 0, 0, 0, time.UTC)
+
+		return nil
 	default:
 		return fmt.Errorf("fakeSubResourceWriter does not support create for %s", sw.subResource)
 	}
